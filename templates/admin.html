@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard | Message Inbox</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: purple; color: white; }
+        tr:hover { background-color: #f1f1f1; }
+        .admin-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 10%; background: #000; color: white; }
+    </style>
+</head>
+<body>
+    <div class="admin-header">
+        <h1>Faith's Inbox</h1>
+        <a href="{{ url_for('logout') }}" class="btn" style="background: white; color: black; padding: 8px 15px;">Logout</a>
+    </div>
+
+    <section>
+        <h2>Received Messages</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Message</th>
+                    <th>Date Received</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for msg in messages %}
+                <tr>
+                    <td>{{ msg[0] }}</td>
+                    <td>{{ msg[1] }}</td>
+                    <td>{{ msg[2] }}</td>
+                    <td>{{ msg[3] }}</td>
+                    <td>{{ msg[4] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        {% if not messages %}
+            <p style="text-align: center; margin-top: 50px; color: #777;">No messages in the database yet.</p>
+        {% endif %}
+    </section>
+</body>
+</html>
