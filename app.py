@@ -1,180 +1,61 @@
-import sqlite3
+from flask import Flask, render_template, request, flash, redirect
+import os
+import threading
 import smtplib
 from email.mime.text import MIMEText
-from flask import Flask, render_template, request, flash, redirect, url_for, session
 
 app = Flask(__name__)
-app.secret_key = "faith_mumo_2026_portfolio_key"
+app.secret_key = os.environ.get("SECRET_KEY", "mysecretkey")  # secure key
 
-DATABASE = "database.db"
-
-# ==============================
-# DATABASE SETUP
-# ==============================
-
-def init_db():
-    with sqlite3.connect(DATABASE) as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS members (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT NOT NULL,
-            message TEXT NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-        """)
-        conn.commit()
-
-init_db()
-
-
-# ==============================
-# HOME PAGE
-# ==============================
-
-@app.route('/')
+# Home page
+@app.route("/")
 def home():
     return render_template("index.html")
 
-
-# ==============================
-# SEND EMAIL FUNCTION
-# ==============================
-
-@app.route('/send_email', methods=['POST'])
-def send_email():
-
-    name = request.form.get("name")
-    email = request.form.get("email")
-    message = request.form.get("message")
-
-    # SAVE MESSAGE TO DATABASE
+# Contact form route
+@app.route("/contact", methods=["POST"])
+def contact():
     try:
-        with sqlite3.connect(DATABASE) as conn:
-            cursor = conn.cursor()
+        name = request.form.get("name")
+        email = request.form.get("email")
+        message = request.form.get("message")
 
-            cursor.execute(
-                "INSERT INTO members (name,email,message) VALUES (?,?,?)",
-                (name, email, message)
-            )
+        # Start email in a background thread so it does not block the request
+        threading.Thread(target=send_email, args=(name, email, message)).start()
 
-            conn.commit()
-
+        flash("Your message has been sent successfully!", "success")
+        return redirect("/")
     except Exception as e:
-        print("Database Error:", e)
+        print("Contact form error:", e)  # logs error
+        flash("There was an error sending your message. Please try again later.", "error")
+        return redirect("/")
 
-    # ==============================
-    # EMAIL CONFIGURATION
-    # ==============================
-
-    MY_EMAIL = "faithmumo87@gmail.com"
-
-    # PUT YOUR GMAIL APP PASSWORD HERE
-    MY_PASS = "tiaq sukm hxdl jjrg"
-
-    msg = MIMEText(
-        f"New message from your portfolio website\n\n"
-        f"Name: {name}\n"
-        f"Email: {email}\n\n"
-        f"Message:\n{message}"
-    )
-
-    msg["Subject"] = "New Portfolio Contact Message"
-    msg["From"] = MY_EMAIL
-    msg["To"] = MY_EMAIL
-
+# Safe email sending function
+def send_email(name, email, message):
     try:
+        smtp_user = os.environ.get("SMTP_USER")
+        smtp_password = os.environ.get("SMTP_PASS")
+        receiver = os.environ.get("RECEIVER_EMAIL")
+
+        if not smtp_user or not smtp_password or not receiver:
+            print("Email environment variables are missing!")
+            return
+
+        msg = MIMEText(f"From: {name} <{email}>\n\n{message}")
+        msg['Subject'] = "Contact Form Submission"
+        msg['From'] = smtp_user
+        msg['To'] = receiver
 
         server = smtplib.SMTP("smtp.gmail.com", 587)
         server.starttls()
-
-        server.login(MY_EMAIL, MY_PASS)
-
-        server.sendmail(
-            MY_EMAIL,
-            MY_EMAIL,
-            msg.as_string()
-        )
-
+        server.login(smtp_user, smtp_password)
+        server.sendmail(smtp_user, receiver, msg.as_string())
         server.quit()
-
-        flash("Message sent successfully!")
-
+        print("Email sent successfully")
     except Exception as e:
+        print("Email sending failed:", e)  # logs error for debugging
 
-        print("SMTP Error:", e)
-
-        flash("Message saved but email failed.")
-
-    return redirect(url_for("home"))
-
-
-# ==============================
-# ADMIN LOGIN
-# ==============================
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-
-    if request.method == "POST":
-
-        username = request.form["username"]
-        password = request.form["password"]
-
-        if username == "admin" and password == "faith2026":
-
-            session["logged_in"] = True
-
-            return redirect(url_for("admin"))
-
-        else:
-
-            flash("Invalid login credentials")
-
-    return render_template("login.html")
-
-
-# ==============================
-# ADMIN DASHBOARD
-# ==============================
-
-@app.route("/admin")
-def admin():
-
-    if not session.get("logged_in"):
-        return redirect(url_for("login"))
-
-    with sqlite3.connect(DATABASE) as conn:
-
-        cursor = conn.cursor()
-
-        cursor.execute("""
-        SELECT id,name,email,message,created_at
-        FROM members
-        ORDER BY id DESC
-        """)
-
-        messages = cursor.fetchall()
-
-    return render_template("admin.html", messages=messages)
-
-
-# ==============================
-# LOGOUT
-# ==============================
-
-@app.route("/logout")
-def logout():
-
-    session.pop("logged_in", None)
-
-    return redirect(url_for("home"))
-
-
-# ==============================
-# RUN APP
-# ==============================
-
+# Run the app on Render
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
