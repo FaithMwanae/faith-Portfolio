@@ -71,7 +71,7 @@ def send_email():
     MY_EMAIL = "faithmumo87@gmail.com"
 
     # PUT YOUR GMAIL APP PASSWORD HERE
-    MY_PASS = "ebcg ddgj wfgi opzk"
+    MY_PASS = "tiaq sukm hxdl jjrg"
 
     msg = MIMEText(
         f"New message from your portfolio website\n\n"
